@@ -10,7 +10,7 @@ This document is a pointer to the authoritative system specification.
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 0 | Project Foundation | In progress |
+| 0 | Project Foundation | Complete |
 | 1 | Configuration & Logging | Not started |
 | 2 | Database Foundation | Not started |
 | 3 | Authentication & Core API | Not started |
