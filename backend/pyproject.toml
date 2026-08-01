@@ -11,10 +11,30 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.0",
+    "httpx2>=0.28.0",
+    "mypy>=1.14.0",
     "pytest>=8.0.0",
+    "ruff>=0.9.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+src = ["app", "config", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+packages = ["app", "config"]
+plugins = []
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false

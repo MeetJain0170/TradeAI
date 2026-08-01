@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  backend-tests:
+  backend-quality:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -26,5 +26,14 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run tests
+      - name: Ruff
+        run: uv run ruff check app config tests
+
+      - name: Ruff format check
+        run: uv run ruff format --check app config tests
+
+      - name: MyPy
+        run: uv run mypy
+
+      - name: Pytest
         run: uv run pytest

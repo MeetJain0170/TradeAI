@@ -2,6 +2,8 @@
 
 from fastapi import FastAPI
 
+from app.domain.schemas.health import HealthResponse
+
 app = FastAPI(
     title="TradeAI",
     description="Enterprise-grade AI-native trading operating system",
@@ -9,7 +11,7 @@ app = FastAPI(
 )
 
 
-@app.get("/health")
-async def health() -> dict[str, str]:
+@app.get("/health", response_model=HealthResponse)
+async def health() -> HealthResponse:
     """Health check endpoint for load balancers and Docker."""
-    return {"status": "ok"}
+    return HealthResponse()

@@ -1,0 +1,21 @@
+# Dependencies and build output (rebuilt in image)
+node_modules
+.next
+out
+
+# Version control and local config
+.git
+.gitignore
+.dockerignore
+
+# Logs and lockfile alternatives
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+.eslintcache
+
+# Docs and local env (not needed in runtime image)
+README.md
+*.md
+.env
+.env.*

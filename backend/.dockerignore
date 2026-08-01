@@ -1,0 +1,28 @@
+# Virtual environments and caches
+.venv
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+.coverage
+*.cover
+
+# Version control and local config
+.git
+.gitignore
+.dockerignore
+
+# Tests and docs (not needed in runtime image)
+tests
+README.md
+*.md
+
+# Vendored ML repos (large; not used in Phase 0)
+external
+
+# Local environment files
+.env
+.env.*
