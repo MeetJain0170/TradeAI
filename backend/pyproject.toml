@@ -7,16 +7,20 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.13.0",
     "asyncpg>=0.29.0",
+    "bcrypt>=4.0.0",
     "email-validator>=2.3.0",
     "fastapi>=0.115.0",
     "greenlet>=3.0.0",
     "pydantic-settings>=2.0",
+    "pyjwt>=2.8.0",
+    "redis>=5.0.0",
     "sqlalchemy[asyncio]>=2.0.0",
     "uvicorn[standard]>=0.32.0",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.0",
     "httpx2>=0.28.0",
     "mypy>=1.14.0",
     "pytest>=8.0.0",
@@ -35,6 +39,7 @@ line-length = 88
 src = ["app", "config", "tests"]
 
 [tool.ruff.lint]
+ignore = ["UP046"]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]

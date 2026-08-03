@@ -5,16 +5,14 @@ subclass declares a default HTTP status code and a standardised
 machine-readable error code, which the global exception handler uses
 to build the standardised API error response.
 
-Error codes are uppercase constants so that clients can reliably
-switch on them and future exception types follow the same pattern.
-
 Hierarchy
 ---------
 TradeAIError
 ├── ConfigurationError   (500 — startup/config issues)
 ├── ValidationError      (422 — bad input from callers)
 ├── InfrastructureError  (503 — downstream service failure)
-└── AuthenticationError  (401 — missing/invalid credentials)
+├── AuthenticationError  (401 — missing/invalid credentials)
+└── AuthorizationError   (403 — insufficient permissions)
 """
 
 from __future__ import annotations
@@ -24,29 +22,9 @@ from typing import Any
 
 
 class TradeAIError(Exception):
-    """Base exception for all TradeAI-specific errors.
+    """Base exception for all TradeAI-specific errors."""
 
-    Parameters
-    ----------
-    message:
-        Human-readable description of what went wrong.
-    code:
-        Machine-readable UPPER_SNAKE_CASE identifier used in API error
-        responses.  Defaults to the subclass ``default_code``.
-    details:
-        Optional mapping of additional context to include in the error
-        response (e.g., field names, upstream error codes).  Must not
-        contain secrets or PII.
-    http_status:
-        HTTP status code to return when this exception propagates to the
-        API layer.  Subclasses set a class-level default; callers may
-        supply a per-instance override.
-    """
-
-    #: Default HTTP status code for this exception family.
     default_http_status: int = HTTPStatus.INTERNAL_SERVER_ERROR.value
-
-    #: Standardised machine-readable error code (UPPER_SNAKE_CASE).
     default_code: str = "INTERNAL_ERROR"
 
     def __init__(
@@ -73,11 +51,7 @@ class TradeAIError(Exception):
 
 
 class ConfigurationError(TradeAIError):
-    """Raised when the application cannot start due to invalid or missing
-    configuration (e.g., absent required environment variable).
-
-    HTTP 500 — indicates a deployment problem, not a client error.
-    """
+    """Raised when application cannot start due to invalid config (500)."""
 
     default_http_status: int = HTTPStatus.INTERNAL_SERVER_ERROR.value
     default_code: str = "CONFIGURATION_ERROR"
@@ -100,22 +74,21 @@ class ValidationError(TradeAIError):
 
 
 class InfrastructureError(TradeAIError):
-    """Raised when an external dependency (database, Redis, broker API,
-    vector DB, LLM provider) is unavailable or returns an unexpected error.
-
-    HTTP 503 — service temporarily unavailable.
-    """
+    """Raised when external dependency is unavailable (503)."""
 
     default_http_status: int = HTTPStatus.SERVICE_UNAVAILABLE.value
     default_code: str = "INFRASTRUCTURE_ERROR"
 
 
 class AuthenticationError(TradeAIError):
-    """Raised when authentication fails — missing, invalid, or expired
-    credentials.
-
-    HTTP 401 — unauthorised.
-    """
+    """Raised when authentication fails (401)."""
 
     default_http_status: int = HTTPStatus.UNAUTHORIZED.value
     default_code: str = "AUTHENTICATION_ERROR"
+
+
+class AuthorizationError(TradeAIError):
+    """Raised when an authenticated user lacks required permissions (403)."""
+
+    default_http_status: int = HTTPStatus.FORBIDDEN.value
+    default_code: str = "FORBIDDEN"

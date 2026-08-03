@@ -1,35 +1,14 @@
-"""TradeAI FastAPI application entry point.
-
-This module is intentionally minimal.  Its only responsibilities are:
-
-1. Instantiate the ``FastAPI`` application with the correct metadata
-   and lifespan context.
-2. Register middleware (order matters — see note below).
-3. Register global exception handlers.
-4. Mount the health endpoint.
-
-All business logic, configuration, logging, and infrastructure
-initialisation belong in their respective modules, not here.
-
-Middleware registration order
-------------------------------
-Starlette applies middleware in **reverse** registration order, so the
-last-added middleware runs first.  We register:
-
-    app.add_middleware(LoggingMiddleware)    # runs second
-    app.add_middleware(RequestIDMiddleware)  # runs first
-
-This ensures the request ID is set in the ``ContextVar`` before the
-logging middleware reads it.
-"""
+"""TradeAI FastAPI application entry point."""
 
 from __future__ import annotations
 
 import logging
 
 from fastapi import FastAPI, Request
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
+from app.api.v1.router import router as v1_router
 from app.core.exceptions import TradeAIError
 from app.core.lifespan import lifespan
 from app.core.middleware import LoggingMiddleware, RequestIDMiddleware
@@ -42,22 +21,49 @@ from app.domain.schemas.health import HealthResponse
 # ------------------------------------------------------------------ #
 
 app = FastAPI(
-    title="TradeAI",
+    title="TradeAI API",
     description=(
         "Enterprise-grade, AI-native trading operating system combining "
         "multi-model forecasting, RAG, and a multi-agent decision system."
     ),
     version="0.1.0",
     lifespan=lifespan,
-    # Disable the default exception handlers so our custom ones take over.
-    # (FastAPI still registers validation error handlers internally.)
 )
+
+# ------------------------------------------------------------------ #
+# OpenAPI Customization for JWT Bearer Authentication                 #
+# ------------------------------------------------------------------ #
+
+
+def custom_openapi() -> dict[str, object]:
+    """Custom OpenAPI schema generator configuring HTTPBearer security scheme."""
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    openapi_schema["components"]["securitySchemes"] = {
+        "HTTPBearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Enter JWT access token in the format: Bearer <token>",
+        }
+    }
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi  # type: ignore[method-assign]
 
 # ------------------------------------------------------------------ #
 # Middleware                                                           #
 # ------------------------------------------------------------------ #
 
-# Registered in reverse-execution order (last registered = first executed).
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(RequestIDMiddleware)
 
@@ -73,13 +79,7 @@ async def tradeai_error_handler(
     request: Request,
     exc: TradeAIError,
 ) -> JSONResponse:
-    """Convert any ``TradeAIError`` (and subclass) into the standard
-    error envelope.
-
-    The exception is logged at ERROR level so it appears in structured
-    logs with the current ``request_id``.  The stack trace is included
-    in the log but is **never** sent to the client.
-    """
+    """Convert any ``TradeAIError`` into the standard error envelope."""
     _logger.error(
         "TradeAI error: %s",
         exc.message,
@@ -102,13 +102,7 @@ async def unhandled_exception_handler(
     request: Request,
     exc: Exception,
 ) -> JSONResponse:
-    """Catch-all handler for unexpected exceptions.
-
-    Logs the full traceback server-side and returns a generic 500
-    response.  The raw exception message is intentionally suppressed
-    from the client response to avoid leaking internal implementation
-    details.
-    """
+    """Catch-all handler for unexpected exceptions."""
     _logger.critical(
         "Unhandled exception",
         exc_info=exc,
@@ -129,8 +123,10 @@ async def unhandled_exception_handler(
 # Routes                                                              #
 # ------------------------------------------------------------------ #
 
+app.include_router(v1_router, prefix="/api")
+
 
 @app.get("/health", response_model=HealthResponse, tags=["Infrastructure"])
 async def health() -> HealthResponse:
-    """Health check endpoint for load balancers and Docker healthchecks."""
+    """Legacy health check for load balancers and Docker healthchecks."""
     return HealthResponse()
