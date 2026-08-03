@@ -25,4 +25,3 @@ def test_health_v1_returns_envelope() -> None:
     payload = response.json()
     assert payload["success"] is True
     assert payload["data"]["status"] == "ok"
-

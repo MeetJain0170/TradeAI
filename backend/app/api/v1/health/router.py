@@ -17,7 +17,7 @@ router = APIRouter(prefix="/health", tags=["Health"])
     summary="Health check endpoint",
 )
 async def health_check_v1() -> SuccessResponse[HealthResponse]:
-    """Return application health status wrapped 
+    """Return application health status wrapped
     userin standardized SuccessResponse envelope."""
     payload = HealthResponse(status="ok")
     return success_response(payload)

@@ -135,8 +135,7 @@ class RoleChecker:
         allowed_roles: list[Role | str],
     ) -> None:
         self.allowed_roles = [
-            Role(role) if isinstance(role, str) else role
-            for role in allowed_roles
+            Role(role) if isinstance(role, str) else role for role in allowed_roles
         ]
 
     async def __call__(
@@ -151,10 +150,7 @@ class RoleChecker:
                 return user
 
         raise AuthorizationError(
-            (
-                f"Role '{user_role.value}' is not authorized "
-                "to access this resource."
-            ),
+            (f"Role '{user_role.value}' is not authorized to access this resource."),
             http_status=403,
         )
 
@@ -181,11 +177,7 @@ class RateLimiter:
     ) -> None:
         """Validate request rate limits."""
 
-        client_identifier = (
-            request.client.host
-            if request.client
-            else "unknown"
-        )
+        client_identifier = request.client.host if request.client else "unknown"
 
         endpoint_key = f"{request.method}:{request.url.path}"
         key = f"{client_identifier}:{endpoint_key}"

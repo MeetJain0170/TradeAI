@@ -53,7 +53,7 @@ async def login(
     auth_service: AuthServiceDep,
 ) -> SuccessResponse[TokenResponse]:
     """
-    Authenticate user with email and password, 
+    Authenticate user with email and password,
     returning Access + Refresh JWT tokens.
     """
     tokens = await auth_service.login(request.email, request.password)
@@ -87,7 +87,7 @@ async def refresh(
     request: RefreshTokenRequest,
     auth_service: AuthServiceDep,
 ) -> SuccessResponse[TokenResponse]:
-    """Perform token rotation by validating refresh token, 
+    """Perform token rotation by validating refresh token,
     revoking old JTI, and issuing new pair."""
     tokens = await auth_service.refresh(request.refresh_token)
     return success_response(tokens)
@@ -103,6 +103,6 @@ async def refresh(
 async def get_profile(
     current_user: CurrentActiveUserDep,
 ) -> SuccessResponse[UserResponse]:
-    """Fetch user profile details for the 
+    """Fetch user profile details for the
     currently authenticated Bearer token user."""
     return success_response(UserResponse.model_validate(current_user))

@@ -1,5 +1,5 @@
 """
-Main API v1 router aggregating 
+Main API v1 router aggregating
 all v1 sub-routers.
 """
 
