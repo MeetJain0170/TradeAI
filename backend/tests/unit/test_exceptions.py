@@ -253,9 +253,7 @@ class TestExceptionHandlerIntegration:
         for path in ("/test-exc/unhandled", "/test-exc/configuration"):
             resp = client.get(path)
             raw = resp.text
-            assert "Traceback" not in raw, (
-                f"Stack trace leaked in response for {path}"
-            )
+            assert "Traceback" not in raw, f"Stack trace leaked in response for {path}"
             assert "RuntimeError" not in raw or path != "/test-exc/unhandled"
 
     def test_error_response_contains_request_id(self) -> None:

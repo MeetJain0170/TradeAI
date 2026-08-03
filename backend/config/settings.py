@@ -204,7 +204,7 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"JWT_SECRET_KEY must be at least 32 characters long "
                 f"(got {len(raw)}).  Generate one with: "
-                f"python -c \"import secrets; print(secrets.token_hex(32))\""
+                f'python -c "import secrets; print(secrets.token_hex(32))"'
             )
         return value
 

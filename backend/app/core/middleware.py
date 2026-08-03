@@ -114,9 +114,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
 
         # Extract only the safe, non-sensitive fields we need.
-        client_ip: str = (
-            request.client.host if request.client else "unknown"
-        )
+        client_ip: str = request.client.host if request.client else "unknown"
         raw_ua: str = request.headers.get("user-agent", "")
         user_agent: str = raw_ua[:_MAX_USER_AGENT_LENGTH]
 

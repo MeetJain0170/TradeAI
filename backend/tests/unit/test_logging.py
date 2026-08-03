@@ -77,9 +77,7 @@ class TestJSONFormatterStructure:
             "function",
             "line",
         }
-        assert required <= data.keys(), (
-            f"Missing fields: {required - data.keys()}"
-        )
+        assert required <= data.keys(), f"Missing fields: {required - data.keys()}"
 
     def test_message_content(self) -> None:
         log, buf = capture_log()

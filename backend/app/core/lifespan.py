@@ -1,27 +1,17 @@
 """FastAPI lifespan context manager.
 
-Manages startup and shutdown hooks for the application.  FastAPI runs
-the code before the ``yield`` on startup and the code after the
-``yield`` on shutdown.
+Manages startup and shutdown hooks for the application.
 
-Current responsibilities (Phase 1)
------------------------------------
+Phase 2 responsibilities
+------------------------
 Startup:
-    1. Initialise structured logging (must happen before any log call).
-    2. Log a safe startup summary (environment, log level, host, port —
-       never secrets).
+    1. Initialise structured logging.
+    2. Verify async PostgreSQL connection (fail fast in production, warning in dev).
+    3. Log a safe startup summary (no secrets or connection strings).
 
 Shutdown:
-    1. Log a clean shutdown message.
-
-Future phases will extend this with:
-    * Phase 2 — PostgreSQL async engine startup / disposal
-    * Phase 3 — Redis connection pool startup / disposal
-    * Phase 8 — Vector DB client startup / disposal
-
-No resource that requires cleanup is initialised here yet; this file
-exists so that later phases have a single, well-known place to add
-lifecycle hooks without touching ``main.py``.
+    1. Dispose of the async engine connection pool.
+    2. Log a clean shutdown message.
 """
 
 from __future__ import annotations
@@ -31,6 +21,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.core.exceptions import InfrastructureError
+from app.infrastructure.database.engine import (
+    dispose_engine,
+    verify_database_connection,
+)
 from app.infrastructure.logging.config import configure_logging
 from app.infrastructure.logging.logger import get_logger
 
@@ -39,15 +34,7 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """Async context manager consumed by FastAPI as the application lifespan.
-
-    Parameters
-    ----------
-    app:
-        The FastAPI application instance.  Passed by FastAPI automatically;
-        available here if startup hooks need to attach state to
-        ``app.state``.
-    """
+    """Async context manager consumed by FastAPI as the application lifespan."""
     # ------------------------------------------------------------------ #
     # STARTUP                                                              #
     # ------------------------------------------------------------------ #
@@ -60,8 +47,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         is_development=settings.is_development,
     )
 
-    # Log a safe summary — never include secrets, connection strings,
-    # or any field whose value could contain credentials.
     logger.info(
         "TradeAI API starting",
         extra={
@@ -73,11 +58,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         },
     )
 
+    # Verify database connectivity. Fail fast in production; log warning in dev.
+    try:
+        await verify_database_connection()
+    except (InfrastructureError, Exception) as exc:
+        if settings.is_production:
+            logger.error(
+                "Database connection failed during production startup. Aborting."
+            )
+            raise
+        logger.warning(
+            f"Database connection check failed during startup: {exc}. "
+            "Continuing startup as environment is non-production."
+        )
+
     yield
 
     # ------------------------------------------------------------------ #
     # SHUTDOWN                                                             #
     # ------------------------------------------------------------------ #
+    await dispose_engine()
     logger.info(
         "TradeAI API shutting down",
         extra={"environment": settings.APP_ENV.value},
