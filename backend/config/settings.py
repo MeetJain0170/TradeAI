@@ -163,6 +163,55 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------ #
+    # Market Data (Phase 4)                                                #
+    # ------------------------------------------------------------------ #
+
+    MARKET_DATA_QUOTE_TTL_SECONDS: int = Field(
+        default=30,
+        description="Redis TTL in seconds for cached market quotes.",
+        gt=0,
+    )
+    MARKET_DATA_INDICES_TTL_SECONDS: int = Field(
+        default=60,
+        description="Redis TTL in seconds for cached market indices.",
+        gt=0,
+    )
+    MARKET_DATA_HISTORY_TTL_SECONDS: int = Field(
+        default=300,
+        description="Redis TTL in seconds for cached OHLCV history.",
+        gt=0,
+    )
+    MARKET_DATA_OPTIONS_TTL_SECONDS: int = Field(
+        default=30,
+        description="Redis TTL in seconds for cached options chain.",
+        gt=0,
+    )
+    MARKET_DATA_WATCHLIST: list[str] = Field(
+        default=["AAPL", "MSFT", "NVDA", "RELIANCE.NS"],
+        description=(
+            "Symbols ingested by the Celery background task. "
+            "Set via comma-separated env var: "
+            "MARKET_DATA_WATCHLIST=AAPL,MSFT,NVDA"
+        ),
+    )
+
+    # ------------------------------------------------------------------ #
+    # Celery (Phase 4)                                                     #
+    # ------------------------------------------------------------------ #
+
+    CELERY_BROKER_URL: str = Field(
+        default="redis://localhost:6379/1",
+        description=(
+            "Celery broker URL.  Uses Redis db=1 to avoid key collisions "
+            "with auth JTI keys stored in db=0."
+        ),
+    )
+    CELERY_RESULT_BACKEND: str = Field(
+        default="redis://localhost:6379/1",
+        description="Celery result backend URL.",
+    )
+
+    # ------------------------------------------------------------------ #
     # Validators                                                           #
     # ------------------------------------------------------------------ #
 

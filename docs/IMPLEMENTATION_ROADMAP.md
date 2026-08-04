@@ -577,52 +577,220 @@ Otherwise Redis alone is sufficient.
 
 **2–3 days**
 
-## Phase 4 – Market Data Layer
+# Phase 4 – Market Data Layer
 
-**Goal:** Implement `BaseMarketDataProvider` and a first concrete provider (Yahoo Finance, as the lowest-friction data source), plus the `stocks` and `market_data` tables and Market Data API.
+## Goal
 
-**Why this phase comes now:** Per the dependency chain, Market Data is the first "content" layer — every downstream layer (features, forecasting, agents) consumes it. NSE/broker-based providers are deferred until the Broker Layer exists (Phase 14), since they require broker auth.
+Implement `BaseMarketDataProvider` and a first concrete provider (**Yahoo Finance**, as the lowest-friction data source), along with the `stocks` and `market_data` database tables and the Market Data API.
 
-**Dependencies:** Phase 3 (auth-protected endpoints), Phase 2 (database/repositories).
+## Why This Phase Comes Now
 
-**Deliverables:**
+Per the dependency chain, **Market Data** is the first "content" layer of the system. Every downstream component—feature engineering, forecasting, AI agents, risk analysis, portfolio management, and execution—depends on clean and reliable market data.
 
-- `BaseMarketDataProvider` interface (`initialize`, `get_quote`, `get_history`, `get_indices`, `get_options_chain`, `health_check`, `shutdown`) under `backend/app/services/market_data/`.
-- `YahooFinanceProvider` concrete implementation.
-- `MarketDataService` orchestrating provider selection, normalization, and Redis caching of hot quotes.
-- Celery + Redis background task for scheduled OHLCV ingestion (first use of the background-processing stack from §6).
-- `stocks` and `market_data` tables + repositories.
+Broker-based providers (Upstox, Zerodha, etc.) are intentionally deferred until **Phase 14 (Broker Layer)** because they require authenticated broker integrations.
 
-**Folder(s) affected:** `backend/app/services/market_data/`, `backend/app/api/v1/market_data/`, `backend/app/domain/models/` (stock, market_data), `backend/external/` (Yahoo Finance SDK wrapper).
+## Dependencies
 
-**Services implemented:** `MarketDataService`, `YahooFinanceProvider`.
-
-**APIs introduced:**
-
-- `GET /api/v1/market-data/{symbol}`
-- `GET /api/v1/market-data/history/{symbol}`
-- `GET /api/v1/market-data/indices`
-- `GET /api/v1/market-data/options/{symbol}`
-
-**Database tables introduced:** `stocks`, `market_data`.
-
-**External integrations:** Yahoo Finance API.
-
-**Testing requirements:** unit tests for the provider interface contract (mocked HTTP); unit tests for data validation/cleaning (missing values, duplicates, timestamp checks per §9 Stage 3); integration test for Celery ingestion task writing to `market_data`; API tests for all four endpoints including invalid-symbol handling.
-
-**Completion checklist:**
-
-- [ ] Live quote, historical OHLCV, indices, and options-chain data retrievable through the API for at least one real symbol.
-- [ ] Data validation rejects malformed/duplicate records before persistence.
-- [ ] Background ingestion task runs on schedule and is independently testable.
-- [ ] Business logic never imports the Yahoo Finance SDK directly — only through `MarketDataService`.
-
-**Estimated complexity:** Medium.
-**Estimated implementation effort:** 3 days.
+- ✅ Phase 2 – Database Foundation & Repository Layer
+- ✅ Phase 3 – Authentication & Core API Skeleton
 
 ---
 
+# Deliverables
 
+### Market Data Providers
+
+Implement a provider abstraction under:
+
+```text
+backend/app/services/market_data/
+```
+
+Components:
+
+- `BaseMarketDataProvider`
+  - `initialize()`
+  - `get_quote()`
+  - `get_history()`
+  - `get_indices()`
+  - `get_options_chain()`
+  - `health_check()`
+  - `shutdown()`
+- `YahooFinanceProvider`
+  - First concrete implementation using Yahoo Finance
+  - The only component allowed to directly use the Yahoo Finance SDK
+
+---
+
+### MarketDataService
+
+Implement a service responsible for:
+
+- Provider selection
+- Response normalization
+- Data validation
+- Redis caching of frequently requested quotes
+- Returning a provider-independent interface to the rest of the application
+
+Business logic must **never import Yahoo Finance directly**.
+
+---
+
+### Background Processing
+
+Implement:
+
+- Celery worker
+- Redis task broker
+- Scheduled OHLCV ingestion task
+
+This becomes the first production use of the application's background-processing stack.
+
+---
+
+### Database
+
+Create the following tables:
+
+- `stocks`
+- `market_data`
+
+Also implement:
+
+- `StockRepository`
+- `MarketDataRepository`
+
+using the repository pattern established in Phase 2.
+
+---
+
+# Folder(s) Affected
+
+```text
+backend/app/services/market_data/
+backend/app/api/v1/market_data/
+backend/app/domain/models/
+backend/app/domain/schemas/
+backend/app/infrastructure/database/repositories/
+backend/app/tasks/
+backend/external/        (Yahoo Finance wrapper)
+```
+
+---
+
+# Services Implemented
+
+- `MarketDataService`
+- `YahooFinanceProvider`
+
+---
+
+# APIs Introduced
+
+### Get latest market quote
+
+```http
+GET /api/v1/market-data/{symbol}
+```
+
+---
+
+### Get historical OHLCV data
+
+```http
+GET /api/v1/market-data/history/{symbol}
+```
+
+---
+
+### Get supported market indices
+
+```http
+GET /api/v1/market-data/indices
+```
+
+---
+
+### Get options chain
+
+```http
+GET /api/v1/market-data/options/{symbol}
+```
+
+---
+
+# Database Tables Introduced
+
+- `stocks`
+- `market_data`
+
+---
+
+# External Integrations
+
+- Yahoo Finance API
+
+---
+
+# Testing Requirements
+
+## Unit Tests
+
+- Provider interface contract (mocked Yahoo Finance responses)
+- Data normalization
+- Data validation
+- Missing value handling
+- Duplicate record detection
+- Timestamp validation
+- Redis cache behavior
+
+---
+
+## Integration Tests
+
+- Celery ingestion task
+- Repository persistence
+- Database writes into `market_data`
+
+---
+
+## API Tests
+
+Verify:
+
+- Latest quote endpoint
+- Historical data endpoint
+- Indices endpoint
+- Options chain endpoint
+- Invalid symbol handling
+- Authentication protection
+- Cache hit/miss behavior
+
+---
+
+# Completion Checklist
+
+- [ ] Live quote data retrievable through the API for at least one real symbol.
+- [ ] Historical OHLCV data retrievable through the API.
+- [ ] Indices endpoint returns normalized market index data.
+- [ ] Options chain endpoint returns normalized options data.
+- [ ] Data validation rejects malformed, duplicate, or invalid records before persistence.
+- [ ] Redis caching is implemented for frequently requested market data.
+- [ ] Background ingestion task runs on schedule and is independently testable.
+- [ ] `stocks` and `market_data` tables are created via Alembic migration.
+- [ ] Business logic never imports the Yahoo Finance SDK directly—only through `MarketDataService`.
+- [ ] All unit, integration, and API tests pass.
+- [ ] Ruff, MyPy, Pytest, and GitHub Actions pass successfully.
+
+---
+
+# Estimated Complexity
+
+**Medium**
+
+# Estimated Implementation Effort
+
+**~3 days**
 
 ## Phase 5 – Feature Engineering Layer
 

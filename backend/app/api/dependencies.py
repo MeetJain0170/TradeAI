@@ -21,6 +21,7 @@ from app.infrastructure.redis.client import check_rate_limit
 from app.security.jwt import JWTService
 from app.security.roles import Role, has_sufficient_role
 from app.services.auth_service import AuthService
+from app.services.market_data.service import MarketDataService
 
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -53,6 +54,17 @@ def get_auth_service(session: DbSession) -> AuthService:
 AuthServiceDep = Annotated[
     AuthService,
     Depends(get_auth_service),
+]
+
+
+def get_market_data_service(session: DbSession) -> MarketDataService:
+    """Provide a MarketDataService instance."""
+    return MarketDataService(session)
+
+
+MarketDataServiceDep = Annotated[
+    MarketDataService,
+    Depends(get_market_data_service),
 ]
 
 

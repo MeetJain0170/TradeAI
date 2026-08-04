@@ -5,14 +5,15 @@ Revises: ca5184213b3a
 Create Date: 2026-08-03 17:03:23.981688
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '300a3564cc60'
-down_revision: str | Sequence[str] | None = 'ca5184213b3a'
+revision: str = "300a3564cc60"
+down_revision: str | Sequence[str] | None = "ca5184213b3a"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
