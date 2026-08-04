@@ -9,31 +9,29 @@ on:
 jobs:
   backend-quality:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tradeai
+          POSTGRES_PASSWORD: tradeai
+          POSTGRES_DB: tradeai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U tradeai"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://tradeai:tradeai@localhost:5432/tradeai_test
+      DATABASE_URL: postgresql+asyncpg://tradeai:tradeai@localhost:5432/tradeai_test
+      REDIS_URL: redis://localhost:6379/0
+      VECTOR_DB_URL: http://localhost:6333
+      JWT_SECRET_KEY: change-me-in-production-must-be-at-least-32-bytes
+
     defaults:
       run:
         working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.13
-
-      - name: Install dependencies
-        run: uv sync
-
-      - name: Ruff
-        run: uv run ruff check app config tests
-
-      - name: Ruff format check
-        run: uv run ruff format --check app config tests
-
-      - name: MyPy
-        run: uv run mypy
-
-      - name: Pytest
-        run: uv run pytest

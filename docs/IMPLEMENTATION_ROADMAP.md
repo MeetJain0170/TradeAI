@@ -149,28 +149,166 @@ Each phase is scoped so that, at the end of it, `docker compose up` (or the loca
 
 
 
-## Phase 3 – Authentication & Core API Skeleton
+## Phase 3 – Authentication, Authorization & Core API Skeleton
 
-**Goal:** Implement JWT-based authentication, RBAC scaffolding, and the versioned API skeleton (`/api/v1/...`) with request validation, rate limiting, and OpenAPI docs — the entry point for every future endpoint.
+**Goal:** Implement a production-ready authentication and authorization layer using JWT, establish the versioned API structure (`/api/v1/...`), configure Redis-backed rate limiting and refresh-token management, and provide the security foundation for every future endpoint.
 
-**Why this phase comes now:** Every other API (market data, forecast, trades, chat) needs auth and the routing/versioning skeleton in place first, to avoid retrofitting security across dozens of endpoints later.
+**Why this phase comes now:** Every future API—including Market Data, Forecasting, RAG, Agents, Trading, Portfolio, and Broker integrations—requires authenticated users, consistent authorization, request validation, and standardized routing. Implementing authentication first prevents retrofitting security across dozens of endpoints later.
 
 **Dependencies:** Phase 2 (`users` table).
 
-**Deliverables:**
+---
 
-- `backend/app/api/v1/auth/` endpoints: register, login, logout, refresh, profile.
-- `AuthService` (password hashing, JWT issuance/verification, refresh-token rotation).
-- `backend/app/api/dependencies.py`: `get_current_user`, RBAC permission decorators, rate-limiting dependency (Redis-backed).
-- Redis connection module under `backend/app/infrastructure/redis/` (first real use of Redis: session/rate-limit storage).
-- OpenAPI/Swagger enabled and documented per §21.
-- Standardized success/error response envelope applied to all endpoints from this point forward.
+## Deliverables
 
-**Folder(s) affected:** `backend/app/api/v1/auth/`, `backend/app/api/dependencies.py`, `backend/app/services/` (auth), `backend/app/infrastructure/redis/`.
+### Authentication Layer
 
-**Services implemented:** `AuthService`.
+Implement under:
 
-**APIs introduced:**
+```text
+backend/app/security/
+```
+
+### PasswordService
+
+Responsible only for password operations.
+
+Functions:
+
+- `hash_password()`
+- `verify_password()`
+- `validate_password_strength()`
+
+Password policy:
+
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one digit
+- At least one special character
+
+---
+
+### JWTService
+
+Responsible only for JWT creation and validation.
+
+Functions:
+
+- `create_access_token()`
+- `create_refresh_token()`
+- `decode_token()`
+- `verify_token()`
+
+JWT payload must contain:
+
+- `sub`
+- `email`
+- `role`
+- `iat`
+- `exp`
+- `jti`
+- `token_type`
+
+Both Access and Refresh Tokens must contain unique `jti` values.
+
+---
+
+### AuthService
+
+Responsible for authentication business logic.
+
+Functions:
+
+- `register()`
+- `login()`
+- `logout()`
+- `refresh()`
+
+AuthService coordinates:
+
+- PasswordService
+- JWTService
+- UserRepository
+- Redis
+
+---
+
+## Authorization (RBAC)
+
+Implement under:
+
+```text
+backend/app/security/
+```
+
+Create:
+
+- `roles.py`
+- `permissions.py`
+
+Implement:
+
+- `Role` enum
+- `Permission` enum
+- `RoleChecker` dependency
+
+Do **not** implement decorator-based RBAC yet.
+
+The design should support future roles such as:
+
+- Admin
+- Trader
+- Researcher
+- ReadOnly
+
+---
+
+## Redis Infrastructure
+
+Implement under:
+
+```text
+backend/app/infrastructure/redis/
+```
+
+Redis will be used for:
+
+- Refresh Token tracking
+- Refresh Token revocation
+- Rate limiting
+- Temporary authentication cache
+
+Do **not** implement server-side sessions.
+
+JWT authentication should remain stateless.
+
+Only Refresh Token JTIs should be stored.
+
+---
+
+## API Skeleton
+
+Establish the permanent API structure.
+
+```text
+/api/v1/
+
+├── auth/
+├── users/
+├── health/
+└── system/
+```
+
+Only `auth` will contain endpoints during this phase.
+
+The remaining folders are created now to stabilize the API structure for future phases.
+
+---
+
+## Authentication Endpoints
+
+Implement:
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
@@ -178,25 +316,266 @@ Each phase is scoped so that, at the end of it, `docker compose up` (or the loca
 - `POST /api/v1/auth/refresh`
 - `GET /api/v1/auth/profile`
 
-**Database tables introduced:** none new (uses `users` from Phase 2); adds `refresh_tokens`/session tracking if not folded into Redis.
+### Registration Requirements
 
-**External integrations:** Redis.
+- Email normalization (convert to lowercase)
+- Password confirmation
+- Duplicate email validation
+- Password strength validation
 
-**Testing requirements:** unit tests for password hashing/JWT logic; API tests (HTTPX) for register/login/refresh/profile happy-path and invalid-credential/expired-token paths; rate-limit test.
+### Login
 
-**Completion checklist:**
+- Authenticate using email only
+- Verify password
+- Return Access Token and Refresh Token
 
-- [ ] User can register, log in, receive access+refresh JWTs, and hit a protected `/profile` endpoint.
-- [ ] Invalid/expired tokens are rejected with correct HTTP status codes.
-- [ ] Rate limiting demonstrably throttles repeated requests.
-- [ ] Swagger UI lists all five endpoints with schemas and auth requirements.
+### Logout
 
-**Estimated complexity:** Medium.
-**Estimated implementation effort:** 2–3 days.
+- Revoke Refresh Token JTI in Redis
+
+### Profile
+
+- Protected endpoint using JWT authentication
 
 ---
 
+## FastAPI Dependencies
 
+Update:
+
+```text
+backend/app/api/dependencies.py
+```
+
+Provide:
+
+- `get_current_user()`
+- `get_current_active_user()`
+- `RoleChecker()`
+- `RateLimiter()`
+
+Services should never decode JWTs manually.
+
+Authentication must always go through dependency injection.
+
+---
+
+## Rate Limiting
+
+Implement Redis-backed configurable rate limiting.
+
+Example:
+
+```python
+RateLimiter(limit=100, window=60)
+```
+
+Future endpoint-specific limits should be configurable, for example:
+
+| Endpoint | Limit |
+|----------|------:|
+| Login | 5 requests/minute |
+| Chat | 20 requests/minute |
+| Forecast | 60 requests/minute |
+
+Do not hardcode rate limits.
+
+---
+
+## Response Envelope
+
+From this phase onward every endpoint must return the standardized API response format.
+
+### Success
+
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+### Failure
+
+```json
+{
+  "success": false,
+  "error": {}
+}
+```
+
+No endpoint should return raw dictionaries.
+
+---
+
+## OpenAPI Documentation
+
+Configure Swagger UI with:
+
+- JWT Bearer Authentication
+- Request examples
+- Response examples
+- Endpoint descriptions
+- Tags
+- HTTP status documentation
+
+Protected endpoints should automatically display authentication requirements.
+
+---
+
+## Folder(s) Affected
+
+```text
+backend/app/api/v1/auth/
+
+backend/app/api/dependencies.py
+
+backend/app/services/auth/
+
+backend/app/security/
+
+backend/app/infrastructure/redis/
+```
+
+---
+
+## Services Implemented
+
+- PasswordService
+- JWTService
+- AuthService
+
+---
+
+## APIs Introduced
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/refresh`
+- `GET /api/v1/auth/profile`
+
+---
+
+## Database
+
+No new primary business tables.
+
+Redis stores:
+
+- Refresh Token JTIs
+- Rate limiting counters
+
+If persistent refresh-token metadata is preferred over Redis-only storage, introduce:
+
+- `refresh_tokens`
+
+Otherwise Redis alone is sufficient.
+
+---
+
+## External Integrations
+
+- PostgreSQL
+- Redis
+
+---
+
+## Testing Requirements
+
+### Unit Tests
+
+**PasswordService**
+
+- Password hashing
+- Password verification
+- Weak password rejection
+
+**JWTService**
+
+- Access Token creation
+- Refresh Token creation
+- Expired Token rejection
+- Invalid Token rejection
+- Malformed JWT rejection
+
+**AuthService**
+
+- Registration
+- Login
+- Logout
+- Refresh
+
+---
+
+### API Tests
+
+#### Register
+
+- Successful registration
+- Duplicate email
+- Weak password
+- Password confirmation mismatch
+
+#### Login
+
+- Successful login
+- Invalid credentials
+
+#### Refresh
+
+- Successful refresh
+- Expired Refresh Token
+- Revoked Refresh Token
+
+#### Profile
+
+- Successful access
+- Missing Authorization header
+- Invalid Bearer format
+- Invalid JWT
+- Expired JWT
+
+#### Rate Limiting
+
+- Verify repeated requests are throttled
+
+#### RBAC
+
+- Verify unauthorized roles are denied access
+
+---
+
+## Completion Checklist
+
+- [ ] User registration works successfully.
+- [ ] Email normalization implemented.
+- [ ] Password policy enforced.
+- [ ] Password confirmation enforced.
+- [ ] Login returns Access Token and Refresh Token.
+- [ ] Protected endpoints authenticate correctly.
+- [ ] Logout revokes Refresh Token JTI.
+- [ ] Expired and malformed JWTs are rejected.
+- [ ] Redis-backed rate limiting verified.
+- [ ] Swagger UI documents authentication correctly.
+- [ ] Standard response envelope applied to every endpoint.
+- [ ] Unit tests pass.
+- [ ] API tests pass.
+- [ ] Ruff passes.
+- [ ] MyPy passes.
+- [ ] Pytest passes.
+
+---
+
+## Estimated Complexity
+
+**Medium–High**
+
+---
+
+## Estimated Implementation Effort
+
+**2–3 days**
 
 ## Phase 4 – Market Data Layer
 
